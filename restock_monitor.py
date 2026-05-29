@@ -15,6 +15,15 @@ PRODUCTS = config["products"]
 DISCORD_ENABLED = config["alerts"]["discord"]["enabled"]
 DISCORD_WEBHOOK = config["alerts"]["discord"]["webhook_url"]
 
+# Excluded languages for Toymate
+EXCLUDED_LANG_KEYWORDS = [
+    "chinese", "korean", "cn", "kr", "中文版", "韩文版"
+]
+
+def is_excluded_language(title):
+    title_lower = title.lower()
+    return any(excluded in title_lower for excluded in EXCLUDED_LANG_KEYWORDS)
+
 # Ensure logs folder exists
 if not os.path.exists("logs"):
     os.makedirs("logs")
@@ -33,7 +42,7 @@ def send_discord_alert(product_name, url, keyword):
         return
 
     data = {
-        "content": f"🔥 **RESTOCK DETECTED!**\n\n**Product:** {product_name}\n**Keyword:** `{keyword}`\n**Link:** {url}"
+        "content": f"🔥 **RESTOCK DETECTED!**\n\n**Product:** {product_name}\n**Status:** `{keyword}`\n**Link:** {url}"
     }
 
     try:
@@ -42,7 +51,8 @@ def send_discord_alert(product_name, url, keyword):
     except Exception as e:
         log(f"Failed to send Discord alert: {e}")
 
-def check_product(product):
+def check_generic(product):
+    """Generic keyword-based checker for stores like Kmart, JB Hi-Fi, EB Games."""
     name = product["name"]
     url = product["url"]
 
@@ -53,26 +63,4 @@ def check_product(product):
         soup = BeautifulSoup(response.text, "html.parser")
         text = soup.get_text().lower()
 
-        for keyword in KEYWORDS:
-            if keyword in text:
-                log(f"Keyword '{keyword}' found for {name}!")
-                send_discord_alert(name, url, keyword)
-                return
-
-        log(f"No restock keywords found for {name}.")
-
-    except Exception as e:
-        log(f"Error checking {name}: {e}")
-
-def main():
-    log("=== Pokémon Restock Monitor Started ===")
-
-    while True:
-        for product in PRODUCTS:
-            check_product(product)
-
-        log(f"Sleeping for {CHECK_INTERVAL} seconds...\n")
-        time.sleep(CHECK_INTERVAL)
-
-if __name__ == "__main__":
-    main()
+        for keyword
