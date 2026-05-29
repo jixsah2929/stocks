@@ -65,7 +65,7 @@ def parse_price(text):
     return None
 
 # -------------------------
-# TOYMATE CHECKER
+# TOYMATE CHECKER (FINAL FIXED VERSION)
 # -------------------------
 def check_toymate():
     url = "https://www.toymate.com.au/search?q=pokemon"
@@ -93,25 +93,37 @@ def check_toymate():
             # Extract REAL link
             link = None
 
+            # 1. Standard link
             link_tag = item.select_one(".product-item-link")
             if link_tag and link_tag.get("href"):
                 link = link_tag["href"]
 
+            # 2. Any <a> with /products/
             if not link:
                 alt = item.select_one('a[href*="/products/"]')
                 if alt:
                     link = alt["href"]
 
+            # 3. data-product-url
             if not link:
                 data_url = item.get("data-product-url")
                 if data_url:
                     link = data_url
 
+            # If still no link → skip
             if not link:
                 continue
 
+            # Ensure correct domain (NO www)
             if link.startswith("/"):
-                link = "https://www.toymate.com.au" + link
+                link = "https://toymate.com.au" + link
+            else:
+                # Replace www with correct domain
+                link = link.replace("https://www.toymate.com.au", "https://toymate.com.au")
+
+            # Ensure trailing slash
+            if not link.endswith("/"):
+                link += "/"
 
             # Price
             price = None
@@ -119,6 +131,7 @@ def check_toymate():
             if price_tag:
                 price = parse_price(price_tag.get_text(strip=True))
 
+            # Detect restock
             if "add to cart" in button_text or "pre order" in button_text:
                 log(f"FOUND Toymate: {title} — {button_text} — {price}")
                 send_discord_alert(title, link, button_text, price)
@@ -140,3 +153,70 @@ def check_target():
         products = soup.select(".product-tile")
 
         for item in products:
+            title_tag = item.select_one(".product-tile__title")
+            link_tag = item.select_one("a")
+            button_tag = item.select_one(".product-tile__cta-button")
+            price_tag = item.select_one(".product-tile__price")
+
+            if not title_tag or not link_tag or not button_tag:
+                continue
+
+            title = title_tag.get_text(strip=True)
+            link = "https://www.target.com.au" + link_tag["href"]
+            button_text = button_tag.get_text(strip=True).lower()
+
+            price = None
+            if price_tag:
+                price = parse_price(price_tag.get_text(strip=True))
+
+            if "add to cart" in button_text or "pre order" in button_text:
+                log(f"FOUND Target: {title} — {button_text} — {price}")
+                send_discord_alert(title, link, button_text, price)
+
+    except Exception as e:
+        log(f"Target error: {e}")
+
+# -------------------------
+# GENERIC CHECKER
+# -------------------------
+def check_generic(product):
+    name = product["name"]
+    url = product["url"]
+
+    log(f"Checking: {name}")
+
+    try:
+        response = requests.get(url, timeout=30)
+        soup = BeautifulSoup(response.text, "html.parser")
+        text = soup.get_text().lower()
+
+        for keyword in KEYWORDS:
+            if keyword in text:
+                send_discord_alert(name, url, keyword)
+                return
+
+    except Exception as e:
+        log(f"Error checking {name}: {e}")
+
+# -------------------------
+# MAIN LOOP
+# -------------------------
+def main():
+    log("=== Pokémon Restock Monitor Started ===")
+
+    while True:
+        for product in PRODUCTS:
+            name = product["name"].lower()
+
+            if "toymate" in name:
+                check_toymate()
+            elif "target" in name:
+                check_target()
+            else:
+                check_generic(product)
+
+        log(f"Sleeping {CHECK_INTERVAL} seconds…\n")
+        time.sleep(CHECK_INTERVAL)
+
+if __name__ == "__main__":
+    main()
