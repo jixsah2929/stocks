@@ -34,7 +34,7 @@
   "alerts": {
     "discord": {
       "enabled": true,
-      "webhook_url": "https://discord.com/api/webhooks/1509902959956328621/yjtnHgQ3ZC7_ptHrcEB6hFlNeWg3ZEnP6A_zp8vwltM1nZqMBdeKGwqpTEsEIQqnyysl"
+      "webhook_url": https://discord.com/api/webhooks/1509902959956328621/yjtnHgQ3ZC7_ptHrcEB6hFlNeWg3ZEnP6A_zp8vwltM1nZqMBdeKGwqpTEsEIQqnyysl
     }
   }
 }
