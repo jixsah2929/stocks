@@ -26,6 +26,10 @@
       "url": "https://www.toymate.com.au/search?q=pokemon"
     },
     {
+      "name": "Target Pokémon TCG",
+      "url": "https://www.target.com.au/search?text=pokemon+cards"
+    },
+    {
       "name": "EB Games Pokémon TCG",
       "url": "https://www.ebgames.com.au/search?query=pokemon+cards"
     }
