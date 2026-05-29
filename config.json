@@ -1,0 +1,40 @@
+{
+  "check_interval_seconds": 60,
+
+  "keywords": [
+    "add to cart",
+    "in stock",
+    "pre order",
+    "pre-order"
+  ],
+
+  "products": [
+    {
+      "name": "Kmart Pokémon TCG",
+      "url": "https://www.kmart.com.au/search?searchTerm=pokemon%20cards"
+    },
+    {
+      "name": "Big W Pokémon TCG",
+      "url": "https://www.bigw.com.au/search?q=pokemon%20cards"
+    },
+    {
+      "name": "JB Hi-Fi Pokémon TCG",
+      "url": "https://www.jbhifi.com.au/search?query=pokemon%20cards"
+    },
+    {
+      "name": "Toymate Pokémon TCG",
+      "url": "https://www.toymate.com.au/search?q=pokemon"
+    },
+    {
+      "name": "EB Games Pokémon TCG",
+      "url": "https://www.ebgames.com.au/search?query=pokemon+cards"
+    }
+  ],
+
+  "alerts": {
+    "discord": {
+      "enabled": true,
+      "webhook_url": "https://discord.com/api/webhooks/1509902959956328621/yjtnHgQ3ZC7_ptHrcEB6hFlNeWg3ZEnP6A_zp8vwltM1nZqMBdeKGwqpTEsEIQqnyysl"
+    }
+  }
+}
