@@ -49,7 +49,7 @@ def check_product(product):
     log(f"Checking: {name}")
 
     try:
-        response = requests.get(url, timeout=10)
+        response = requests.get(url, timeout=25)
         soup = BeautifulSoup(response.text, "html.parser")
         text = soup.get_text().lower()
 
