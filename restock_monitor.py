@@ -58,7 +58,20 @@ def send_discord_alert(product_name, url, keyword, price=None):
         log(f"Failed to send Discord alert: {e}")
 
 # -------------------------
-# GENERIC CHECKER (no per-item price)
+# PRICE PARSER
+# -------------------------
+def parse_price_from_text(text):
+    text = text.replace(",", "")
+    for part in text.split():
+        if part.startswith("$"):
+            try:
+                return float(part.replace("$", ""))
+            except:
+                pass
+    return None
+
+# -------------------------
+# GENERIC CHECKER
 # -------------------------
 def check_generic(product):
     name = product["name"]
@@ -74,47 +87,17 @@ def check_generic(product):
         for keyword in KEYWORDS:
             if keyword in text:
                 log(f"Keyword '{keyword}' found for {name}!")
-                send_discord_alert(name, url, keyword, price=None)
+                send_discord_alert(name, url, keyword)
                 return
 
         log(f"No restock keywords found for {name}.")
-
-    except requests.exceptions.Timeout:
-        log(f"Timeout checking {name}. Retrying...")
-        try:
-            response = requests.get(url, timeout=25)
-            soup = BeautifulSoup(response.text, "html.parser")
-            text = soup.get_text().lower()
-
-            for keyword in KEYWORDS:
-                if keyword in text:
-                    log(f"Keyword '{keyword}' found for {name}!")
-                    send_discord_alert(name, url, keyword, price=None)
-                    return
-
-            log(f"No restock keywords found for {name} after retry.")
-
-        except Exception as e:
-            log(f"Second failure checking {name}: {e}")
 
     except Exception as e:
         log(f"Error checking {name}: {e}")
 
 # -------------------------
-# TOYMATE CHECKER (fixed links + price)
+# TOYMATE CHECKER (FIXED LINKS + PRICE + INDIVIDUAL ITEMS)
 # -------------------------
-def parse_price_from_text(text):
-    # Very simple price parser: looks for $xx.xx
-    text = text.replace(",", "")
-    for part in text.split():
-        if part.startswith("$"):
-            try:
-                value = float(part.replace("$", ""))
-                return value
-            except ValueError:
-                continue
-    return None
-
 def check_toymate():
     url = "https://www.toymate.com.au/search?q=pokemon"
     log("Checking Toymate…")
@@ -127,15 +110,12 @@ def check_toymate():
 
         for item in products:
             title_tag = item.select_one(".product-item-title")
-            link_tag = item.select_one(".product-item-link")
             button_tag = item.select_one("button")
-            price_tag = item.select_one(".price") # Toymate price container
 
-            if not title_tag or not link_tag or not button_tag:
+            if not title_tag or not button_tag:
                 continue
 
             title = title_tag.get_text(strip=True)
-            link = "https://www.toymate.com.au" + link_tag["href"]
             button_text = button_tag.get_text(strip=True).lower()
 
             # Skip Chinese/Korean cards
@@ -143,11 +123,40 @@ def check_toymate():
                 log(f"Skipping non-English product: {title}")
                 continue
 
-            # Try to get price
+            # Extract REAL product link
+            link = None
+
+            # 1. Standard link
+            link_tag = item.select_one(".product-item-link")
+            if link_tag and link_tag.get("href"):
+                link = link_tag["href"]
+
+            # 2. Any <a> with /products/
+            if not link:
+                alt_link = item.select_one('a[href*="/products/"]')
+                if alt_link:
+                    link = alt_link["href"]
+
+            # 3. data-product-url
+            if not link:
+                data_url = item.get("data-product-url")
+                if data_url:
+                    link = data_url
+
+            # If still no link → skip
+            if not link:
+                log(f"Skipping item with no valid link: {title}")
+                continue
+
+            # Ensure full URL
+            if link.startswith("/"):
+                link = "https://www.toymate.com.au" + link
+
+            # Extract price
             price = None
+            price_tag = item.select_one(".price")
             if price_tag:
-                price_text = price_tag.get_text(strip=True)
-                price = parse_price_from_text(price_text)
+                price = parse_price_from_text(price_tag.get_text(strip=True))
 
             # Detect restock
             if "add to cart" in button_text or "pre order" in button_text:
@@ -155,13 +164,14 @@ def check_toymate():
                 if price is not None:
                     log_msg += f" — ${price:.2f} AUD"
                 log(log_msg)
-                send_discord_alert(title, link, button_text, price=price)
+
+                send_discord_alert(title, link, button_text, price)
 
     except Exception as e:
         log(f"Error checking Toymate: {e}")
 
 # -------------------------
-# TARGET CHECKER (direct links + price)
+# TARGET CHECKER (DIRECT LINKS + PRICE + INDIVIDUAL ITEMS)
 # -------------------------
 def check_target():
     url = "https://www.target.com.au/search?text=pokemon+cards"
@@ -177,7 +187,7 @@ def check_target():
             title_tag = item.select_one(".product-tile__title")
             link_tag = item.select_one("a")
             button_tag = item.select_one(".product-tile__cta-button")
-            price_tag = item.select_one(".product-tile__price") # Target price container
+            price_tag = item.select_one(".product-tile__price")
 
             if not title_tag or not link_tag or not button_tag:
                 continue
@@ -186,16 +196,10 @@ def check_target():
             link = "https://www.target.com.au" + link_tag["href"]
             button_text = button_tag.get_text(strip=True).lower()
 
-            # Skip Chinese/Korean cards if they ever appear
-            if is_excluded_language(title):
-                log(f"Skipping non-English product: {title}")
-                continue
-
-            # Try to get price
+            # Extract price
             price = None
             if price_tag:
-                price_text = price_tag.get_text(strip=True)
-                price = parse_price_from_text(price_text)
+                price = parse_price_from_text(price_tag.get_text(strip=True))
 
             # Detect restock
             if "add to cart" in button_text or "pre order" in button_text:
@@ -203,7 +207,8 @@ def check_target():
                 if price is not None:
                     log_msg += f" — ${price:.2f} AUD"
                 log(log_msg)
-                send_discord_alert(title, link, button_text, price=price)
+
+                send_discord_alert(title, link, button_text, price)
 
     except Exception as e:
         log(f"Error checking Target: {e}")
